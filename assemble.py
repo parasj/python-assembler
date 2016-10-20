@@ -1,4 +1,5 @@
 import argparse
+import re
 
 
 class Assembler():
@@ -13,19 +14,61 @@ class Assembler():
         # 4. translate to bytecode
 
         contents = self.read_and_clean_asm(filename)
-        sym_table = self.build_sym_table(contents)
-        return ""
+        (sym_table, contents) = self.build_sym_table(contents)
+        contents = self.split_ops(contents)
+        contents = self.substitute_symbols(contents, sym_table)
+        print("\n".join(map(lambda x: str(x), contents)))
+        bc = self.translate_asm(contents)
+        return bc
 
     def read_and_clean_asm(self, filename):
         with open(filename, 'r') as f:
             data = f.readlines()
         data = map(lambda x: x.strip(), data)                   # strip whitespace
-        data = filter(lambda x: not x.startswith(';'), data)    # filter comments
+        data = map(lambda x: x.split(';', 1)[0], data)          # strip comments
+        data = filter(lambda x: x is not None, data)            # filter empty lines
         data = filter(lambda x: len(x) > 0, data)               # filter empty lines
         return data
 
     def build_sym_table(self, lines):
-        return {}
+        symbols = {}
+        toks = map(self.tokenize_symbol_line, lines)
+
+        annotated_toks = []
+
+        pc = 0
+        for n in range(0, len(toks)):
+            (type, data) = toks[n]
+
+            if type is "NAME":
+                symbols[data[0]] = data[1]
+            elif type is "ORIG":
+                pc = data[0]
+            elif type.startswith("LABEL"):
+                symbols[data[0]] = pc
+
+            if type is "WORD" or type.endswith("OP"):
+                annotated_toks.append((pc, type, data))
+                pc += 1
+
+        print("PASS ONE: {}".format(str(symbols)))
+        for l in annotated_toks:
+            print("\t{:4d} {:10s} {}".format(l[0], l[1], l[2]))
+
+        return symbols, annotated_toks
+
+    def split_ops(self, contents):
+        inst_re = re.compile(r'[\s,]+')
+        for (pc, type, data) in contents:
+            inst = filter(lambda x: len(x) > 0, inst_re.split(data[0]))
+            yield (pc, type, inst)
+
+    def substitute_symbols(self, contents, sym_table):
+        for (pc, type, data) in contents:
+            yield (pc, type, data)
+
+    def translate_asm(self, sub_contents):
+        return []
 
     ###
     # R0..R3 are also A0..A3 (function arguments, caller saved)
@@ -54,6 +97,33 @@ class Assembler():
     def build_op_table(self):
         # todo fill table
         return {"ADD": 0x00000000}
+
+    def parse_literal(self, num):
+        return int(num, 0)
+
+    def tokenize_symbol_line(self, l):
+        s = l.strip()
+        m = re.match(r'^.NAME\s*(.*)\s*=\s*(.*)\s*$', s)
+        if m:
+            return "NAME", [m.group(1), self.parse_literal(m.group(2))]
+
+        m = re.match(r'^.ORIG\s*(.*)\s*$', s)
+        if m:
+            return "ORIG", [self.parse_literal(m.group(1))]
+
+        m = re.match(r'^.WORD.*', s)
+        if m:
+            return "WORD", []  # todo
+
+        m = re.match(r'^\s*([^\s]+)\s*:\s*(.+)\s*$', s)
+        if m:
+            return "LABELOP", [m.group(1), m.group(2)]
+
+        m = re.match(r'^\s*([^\s]+)\s*:\s*$', s)
+        if m:
+            return "LABEL", [m.group(1)]
+
+        return "OP", [l]
 
 
 def main():
