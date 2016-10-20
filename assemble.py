@@ -40,15 +40,15 @@ class Assembler():
     # R15 is RA (return address)
     ###
     def build_reg_table(self):
-        regs = {"R%d".format(i): i for i in range(0, 15)}
-        regs = regs.update({"A%d".format(i): regs["R%d".format(i)] for i in range(0, 3)})
-        regs = regs.update({"RV": regs["R3"]})
-        regs = regs.update({"T%d".format(i): regs["R%d".format(i + 4)] for i in range(0, 1)})
-        regs = regs.update({"S%d".format(i): regs["R%d".format(i + 6)] for i in range(0, 2)})
-        regs = regs.update({"GP": regs["R12"]})
-        regs = regs.update({"FP": regs["R13"]})
-        regs = regs.update({"SP": regs["R14"]})
-        regs = regs.update({"RA": regs["R15"]})
+        regs = {"R{0}".format(i): i for i in range(0, 16)}
+        regs.update({"A{0}".format(i): regs["R{0}".format(i)] for i in range(0, 3)})
+        regs.update({"RV": regs["R3"]})
+        regs.update({"T{0}".format(i): regs["R{0}".format(i + 4)] for i in range(0, 1)})
+        regs.update({"S{0}".format(i): regs["R{0}".format(i + 6)] for i in range(0, 2)})
+        regs.update({"GP": regs["R12"]})
+        regs.update({"FP": regs["R13"]})
+        regs.update({"SP": regs["R14"]})
+        regs.update({"RA": regs["R15"]})
         return regs
 
     def build_op_table(self):
