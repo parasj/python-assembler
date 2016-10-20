@@ -33,7 +33,7 @@ class Assembler():
     # R4..R5 are also T0..T1 (temporaries, caller saved)
     # R6..R8 are also S0..S2 (callee-saved values)
     # R9 reserved for assembler use
-    # R10..R11 reserved for system use (we’ll see later for what)
+    # R10..R11 reserved for system use (we'll see later for what)
     # R12 is GP (global pointer)
     # R13 is FP (frame pointer)
     # R14 is SP (stack pointer), Stack grows down, SP points to lowest in-use address
