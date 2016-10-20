@@ -1,0 +1,146 @@
+; Stack begins at the very top of memory
+.NAME	StkTop=8192
+;  Number of sorting iterations
+.NAME	ItNum=300
+; The array starts at data address 0x100 and has 1024 elements (4kB)
+.NAME	Array=0x100
+.NAME	ArrayBytes=4096
+; Addresses for I/O
+.NAME   IOBASE= 0xF0000000
+.NAME	OFSHEX= 0x00000000
+.NAME	OFSLEDR=0x00000004
+
+	;  Now the actual code
+	.ORIG 0x40
+	; SP Points to the top of the stack
+	MVHI	SP,StkTop
+	ADDI	SP,SP,StkTop
+	; Our GP will point to the beginning of I/O addresses
+	MVHI	GP,IOBASE
+	; Our S0 will be zero
+	ANDI	S0,S0,0
+	SW		S0,OFSLEDR(GP)	; Turn off LEDR
+	
+	; Initialize the array
+	ADDI 	T0,S0,Array			; T0 is CurPtr, set to start of array
+	ADDI	T1,T0,ArrayBytes	; T1 is EndPtr, set to end of array
+	; Array elements will be 9, 22, 35, etc.
+	ADDI	S1,S0,9				; S1 is the current value of the array element for initialization
+Init:
+	SW		S1,0(T0)		; Store value into an element
+	ADDI	S1,S1,13		; Add 13 to the value for next element
+	ADDI	T0,T0,4			; Move to next element
+	BNE		T0,T1,Init		; if(CurPtr!=EndPtr) goto Init;
+	CALL	ChkAsc(S0)		; Call ChkAsc
+	
+	ADDI	S1,S0,ItNum		; We will keep the iteration count in S1
+	SW		S1,OFSHEX(GP)	; Display loop counter
+MainLoop:
+	ADDI	A0,S0,Array
+	ADDI	A1,A0,ArrayBytes
+	CALL	SortDesc(S0)	; SortDesc(Array,ArrayBytes)
+	CALL	ChkDesc(S0)		; ChkDesc()
+	ADDI	A0,S0,Array
+	ADDI	A1,A0,ArrayBytes
+	CALL	SortAsc(S0)		; SortAsc(Array,ArrayBytes)
+	CALL 	ChkAsc(S0)		; ChkAsc()
+	; Decrement iteration counter and loop back if not done
+	ADDI	S1,S1,-1
+	SW		S1,OFSHEX(GP)	; Display loop counter
+	BNEZ	S1,MainLoop
+Done:
+	NOT		T0,S0			; All-ones in T0
+	SW		S0,OFSLEDR(GP)	; Turn off LEDR
+	BT		T0,S0,Done		; Loop forever
+
+	; Verifies that the array is sorted in ascending order
+ChkAsc:
+	ADDI	A0,S0,Array
+	ADDI	A1,A0,ArrayBytes
+	; Array elements should be 9,22,35,etc.
+	ADDI	A2,S0,9
+LoopChkAsc:
+	LW		T0,0(A0)
+	BEQ		T0,A2,GoodChkAsc
+ErrChkAsc:
+	SW		T0,OFSHEX(GP)	; Put value we read on HEX
+	ADDI	T1,S0,0x3E0
+	SW		T1,OFSLEDR(GP)	; Turn on upper half of LEDR
+	BT 		T0,T0,ErrChkAsc	; Loop forever
+GoodChkAsc:
+	ADDI	A2,a2,13
+	ADDI	A0,A0,4
+	BNE		A0,A1,LoopChkAsc
+	RET
+
+	; Verifies that the array is sorted in descending order
+ChkDesc:
+	ADDI	A1,S0,Array
+	ADDI	A0,A1,ArrayBytes
+	; Array elements should be 9,22,35, etc.
+	ADDI	A2,S0,9
+LoopChkDesc:
+	SUBI	A0,A0,4
+	LW		T1,0(A0)
+	BEQ		A2,T1,GoodChkDesc
+ErrChkDesc:
+	SW		T1,OFSHEX(GP)	; Put value we read on HEX
+	ADDI	T0,S0,0x01F
+	SW		T0,OFSLEDR(GP)	; Turn on lower half of LEDR
+	BT 		T1,T0,ErrChkDesc		; Loop forever
+GoodChkDesc:
+	ADDI	A2,A2,13
+	BNE		A1,A0,LoopChkDesc
+	RET
+
+SortAsc:; SortAsc(beg,end)
+	; Sorts an array that starts at beg and ends at end
+	; Sorts in ascending order (low to high values)
+	; The sorting strategy is immediate-swap selection sort
+	; Outer loop (ptr "i" in A0) goes from start to end
+SortAscLoopI:
+	BEQ     A0,A1,SortAscEndI
+	LW		T0,0(A0)	; T0 will be equal to what should be in *i
+	; Inner loop (ptr "j" in A2) goes from i+4 to end
+    ADDI    A2,A0,4
+SortAscLoopJ:  
+    BEQ     A2,A1,SortAscEndJ
+	LW		T1,0(A2)	; T1=*j
+	BLTE	T0,T1,SortAscNoSwap
+	SW		T0,0(A2)	; *j=T0 (*j becomes what was in *i)
+	ADD		T0,T1,S0	; T0=T1 (*i becomes what was in *j)
+SortAscNoSwap:
+	ADDI	A2,A2,4
+	BT		T0,T1,SortAscLoopJ
+SortAscEndJ:
+	SW		T0,0(A0)	; Save T0 back into *i
+	ADDI	A0,A0,4
+	BT		A0,A1,SortAscLoopI
+SortAscEndI:
+	RET
+	
+SortDesc:; SortDesc(beg,end)
+	; Sorts an array that starts at beg and ends at end
+	; Sorts in descending order (high to low values)
+	; The sorting strategy is immediate-swap selection sort
+	; Outer loop (ptr "i" in T0) goes from start to end
+	ADDI	T0,A0,0
+SortDescLoopI:
+	BEQ     T0,A1,SortDescEndI
+	; Inner loop (ptr "j" in T1) goes from i+4 to end
+    ADDI    T1,T0,4
+SortDescLoopJ:  
+    BEQ     T1,A1,SortDescEndJ
+	LW		A2,0(T0)	; A2=*i
+	LW		A3,0(T1)	; A3=*j
+	BGTE	A2,A3,SortDescNoSwap
+	SW		A2,0(T1)	; *j=A2
+	SW		A3,0(T0)	; *i=A3
+SortDescNoSwap:
+	ADDI	T1,T1,4
+	BT		A0,A0,SortDescLoopJ
+SortDescEndJ:
+	ADDI	T0,T0,4
+	BT		A0,A0,SortDescLoopI
+SortDescEndI:
+	RET

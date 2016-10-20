@@ -1,0 +1,242 @@
+; VERY IMPORTANT - the comments in this file are inaccurate
+; DO NOT TRUST THEM
+
+; Addresses for I/O
+.NAME IOBASE= 0xF0000000
+.NAME	OFSHEX= 0x00000000
+.NAME	OFSLEDR=0x00000004
+.NAME	OFSKEY =0x00000010
+.NAME	OFSSW  =0x00000014
+
+	; This should never be executed
+	.ORIG 0
+	bt			t0,t0,AtZero
+	addi		s1,s1,0x1
+	addi		s1,s1,0x1
+	addi		s1,s1,0x1
+	addi		s1,s1,0x1
+	addi		s1,s1,0x1
+	addi		s1,s1,0x1
+	addi		s1,s1,0x1
+	addi		s1,s1,0x1
+AtZero:
+	; Turn on LEDR, display 0xBAD on HEX
+	mvhi	gp,IOBASE
+	andi	s0,s0,0
+	not		t0,s0
+	sw		t0,OFSLEDR(gp)
+	addi	t0,s0,0xBAD
+	sw		t0,OFSHEX(gp)
+	;bt		t0,t0,AtZero
+	
+	; Now the actual code
+	.ORIG 0x40
+	addi	s2,s0,0x0BEF
+	; Our FP register will be zero
+	xor		fp,fp,fp
+	; Prepare the gp register
+	mvhi	gp,IOBASE
+	; Put 1 on LEDR
+	mvhi	s0,0
+	addi	s0,s0,1
+	sw		s0,OFSLEDR(gp)
+	; Put 2 on LEDR
+	addi	s0,s0,1
+	sw		s0,OFSLEDR(gp)
+	addi	t0,fp,-1
+	addi	t1,fp,2
+	addi	a0,fp,1
+	add		a1,t0,t1
+	beq		a0,a1,AddWorks
+AddFailed:
+	; Turn on LEDR, display what's in a0
+	not		t0,fp
+	sw		t0,OFSLEDR(gp)
+	sw		a0,OFSHEX(gp)
+	bt		t0,t0,AddFailed	
+AddWorks:
+	; Put 3 on LEDR
+	addi	s0,s0,1
+	sw		s0,OFSLEDR(gp)
+	addi	t0,fp,7		; t0 is 7  (0x00000007)
+	addi	t1,t0,3	    ; t1 is 10 (0x0000000A)
+	add		a0,t1,t1    ; a0 is 20 (0x00000014)
+	ori		a1,a0,0x25	; a1 is     0x00000035)
+	andi	a2,a1,0xD1	; a2 is 17  0x00000011
+	xor		a0,a0,a1	; a0 is 33  0x00000021
+	or		a1,a0,t0	; a1 is     0x00000027
+	nor		a2,t0,a2	; a2 is -2  0xFFFFFFFE
+	nand	a3,a2,a1	; a3 is     0xFFFFFFD9
+	sub		a1,t0,a2	; a1 is 9   0x00000009
+	and		t0,a1,a2	; t0 is 8	0x00000008
+	xnor	a1,a1,t0	; a1 is -2  0xFFFFFFFE
+	xor		a2,a2,a3	; a3 is	    0x00000027
+	sub		a0,a0,a2	; a0 is -6
+	add		a0,a1,a0	; a0 is -8
+	addi	t1,fp,-8
+	bne		a0,t1,AluWorks
+AluFailed:
+	; Turn on LEDR, display what's in a0
+	not		t0,fp
+	sw		t0,OFSLEDR(gp)
+	sw		a0,OFSHEX(gp)
+	bt		t0,t0,AluFailed	
+AluWorks:
+	; Put 4 on LEDR
+	addi	s0,s0,1
+	sw		s0,OFSLEDR(gp)
+	addi	a1,fp,1
+	addi	t0,fp,75
+	addi	t1,fp,34
+	addi	a0,fp,-80
+	lte		a2,t0,t1
+	bne		a2,fp,CmpFailed
+	; Put 5 on LEDR
+	addi	s0,s0,1
+	sw		s0,OFSLEDR(gp)
+	lt		a2,t0,t1
+	bne		a2,fp,CmpFailed
+	; Put 6 on LEDR
+	addi	s0,s0,1
+	sw		s0,OFSLEDR(gp)
+	eq		a2,t0,t1
+	bne		a2,fp,CmpFailed
+	; Put 7 on LEDR
+	addi	s0,s0,1
+	sw		s0,OFSLEDR(gp)
+	ne		a2,t0,t1
+	bne		a2,a1,CmpFailed
+	; Put 8 on LEDR
+	addi	s0,s0,1
+	sw		s0,OFSLEDR(gp)
+	gt		a2,t0,t1
+	bne		a2,a1,CmpFailed
+	; Put 9 on LEDR
+	addi	s0,s0,1
+	sw		s0,OFSLEDR(gp)
+	gte		a2,t0,t1
+	bne		a2,a1,CmpFailed	
+	; Put 10 on LEDR
+	addi	s0,s0,1
+	sw		s0,OFSLEDR(gp)
+	lte		a2,t1,t1
+	bne		a2,a1,CmpFailed
+	; Put 11 on LEDR
+	addi	s0,s0,1
+	sw		s0,OFSLEDR(gp)
+	lt		a2,t1,t1
+	bne		a2,fp,CmpFailed
+	; Put 12 on LEDR
+	addi	s0,s0,1
+	sw		s0,OFSLEDR(gp)
+	eq		a2,t1,t1
+	bne		a2,a1,CmpFailed
+	; Put 13 on LEDR
+	addi	s0,s0,1
+	sw		s0,OFSLEDR(gp)
+	ne		a2,t1,t1
+	bne		a2,fp,CmpFailed
+	; Put 14 on LEDR
+	addi	s0,s0,1
+	sw		s0,OFSLEDR(gp)
+	gt		a2,t1,t1
+	bne		a2,fp,CmpFailed
+	; Put 15 on LEDR
+	addi	s0,s0,1
+	sw		s0,OFSLEDR(gp)
+	gte		a2,t1,t1
+	bne		a2,a1,CmpFailed	
+	; Put 16 on LEDR
+	addi	s0,s0,1
+	sw		s0,OFSLEDR(gp)
+	lte		a2,a0,t0
+	bne		a2,a1,CmpFailed
+	; Put 17 on LEDR
+	addi	s0,s0,1
+	sw		s0,OFSLEDR(gp)
+	lt		a2,a0,t0
+	bne		a2,a1,CmpFailed
+	; Put 18 on LEDR
+	addi	s0,s0,1
+	sw		s0,OFSLEDR(gp)
+	eq		a2,a0,t0
+	bne		a2,fp,CmpFailed
+	; Put 19 on LEDR
+	addi	s0,s0,1
+	sw		s0,OFSLEDR(gp)
+	ne		a2,a0,t0
+	bne		a2,a1,CmpFailed
+	; Put 20 on LEDR
+	addi	s0,s0,1
+	sw		s0,OFSLEDR(gp)
+	gt		a2,a0,t0
+	bne		a2,fp,CmpFailed
+	; Put 21 on LEDR
+	addi	s0,s0,1
+	sw		s0,OFSLEDR(gp)
+	gte		a2,a0,t0
+	bne		a2,fp,CmpFailed	
+	bt		t0,t0,CmpWorks
+CmpFailed:
+	; Turn on LEDR, display what's in a2
+	not		t0,gp
+	sw		t0,OFSLEDR(gp)
+	sw		a2,OFSHEX(gp)
+	bt		t0,t0,CmpFailed
+CmpWorks:
+	; Put 22 on LEDR
+	addi	s0,s0,1
+	sw		s0,OFSLEDR(gp)
+	addi	t0,fp,0x37
+	addi	t1,fp,0xE1
+	addi	a2,fp,1024
+	sw		t0,0(a2)
+	sw		t1,4(a2)
+	addi	a2,a2,4
+	lw		a0,0(a2)
+	bne		a0,t1,MemFailed
+	lw		a0,-4(a2)
+	beq		a0,t0,MemWorks
+MemFailed:
+	; Turn on LEDR, display what's in a0
+	not		t0,fp
+	sw		t0,OFSLEDR(gp)
+	sw		a0,OFSHEX(gp)
+	bt		t0,t0,MemFailed
+MemWorks:
+	; Put 23 on LEDR
+	addi	s0,s0,1
+	sw		s0,OFSLEDR(gp)
+	addi	t1,fp,JalRet
+	add		t1,t1,t1
+	add		t1,t1,t1
+	jal		t0,JalTarg(fp)
+JalRet:
+	bt		t0,t0,JalWorks
+JalTarg:
+	bne		t0,t1,JalFailed
+	jal		t1,0(t0)
+JalFailed:
+	; Turn on LEDR, display what's in t0
+	not		t0,fp
+	sw		t0,OFSLEDR(gp)
+	sw		t0,OFSHEX(gp)
+	bt		t0,t0,JalFailed
+JalWorks:
+	; Put 24 on LEDR
+	addi	s0,s0,1
+	sw		s0,OFSLEDR(gp)
+WaitPress1:
+	lw		t1,OFSKEY(gp)
+	sw		t1,OFSHEX(gp)
+	beq		t1,fp,WaitPress1
+WaitRelease1:
+	lw		t1,OFSKEY(gp)
+	sw		t1,OFSHEX(gp)
+	bne		t1,fp,WaitRelease1
+Done:
+	; Turn on LEDR, put FFFF on HEX
+	not		t0,fp
+	sw		t0,OFSLEDR(gp)
+	sw		t0,OFSHEX(gp)
+	bt		t0,t0,Done
