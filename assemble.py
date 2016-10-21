@@ -17,7 +17,8 @@ class Assembler():
         (sym_table, contents) = self.build_sym_table(contents)
         contents = self.split_ops(contents)
         contents = self.substitute_symbols(contents, sym_table)
-        print("\n".join(map(lambda x: str(x), contents)))
+        for c in contents:
+            print("{:5d} {:5s} {}".format(c[0], c[1], list(c[2])))
         bc = self.translate_asm(contents)
         return bc
 
@@ -32,7 +33,7 @@ class Assembler():
 
     def build_sym_table(self, lines):
         symbols = {}
-        toks = map(self.tokenize_symbol_line, lines)
+        toks = list(map(self.tokenize_symbol_line, lines))
 
         annotated_toks = []
 
@@ -50,10 +51,6 @@ class Assembler():
             if type is "WORD" or type.endswith("OP"):
                 annotated_toks.append((pc, type, data))
                 pc += 1
-
-        print("PASS ONE: {}".format(str(symbols)))
-        for l in annotated_toks:
-            print("\t{:4d} {:10s} {}".format(l[0], l[1], l[2]))
 
         return symbols, annotated_toks
 
