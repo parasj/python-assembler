@@ -14,12 +14,13 @@ class Assembler():
         # 4. translate to bytecode
         contents = self.read_and_clean_asm(filename)
         (sym_table, contents) = self.build_sym_table(contents)
+        print(sym_table['WIDTH'])
         contents = self.split_ops(contents)
         contents = self.substitute_symbols(contents, sym_table)
+        contents = self.translate_asm(contents)
         for c in contents:
             print("{:5d} {:5s} {}".format(c[0], c[1], list(c[2])))
-        bc = self.translate_asm(contents)
-        return bc
+        return contents
 
     def read_and_clean_asm(self, filename):
         with open(filename, 'r') as f:
@@ -42,7 +43,7 @@ class Assembler():
 
             if type is "NAME":
                 symbols[data[0]] = data[1]
-            elif type is "ORIG":
+            elif type is "ORIG":    
                 pc = data[0]
             elif type.startswith("LABEL"):
                 symbols[data[0]] = pc
@@ -68,15 +69,43 @@ class Assembler():
                 data[-1] = [", ".join(x.split()) for x in re.split(r'[()]',data[-1]) if x.strip()]
                 data[-1] = [str(sym_table[n]) if n in sym_table.keys() else n for n in data[-1]]
                 data[-1] = [str(self.reg_table[n]) if n in self.reg_table.keys() else n for n in data[-1]]
-                data[-1] = str(int(data[-1][0]) + int(data[-1][1]))
+                data.append(data[-1][0])
+                data[-2] = data[-2][1]#wrong
             if "x" in data[-1]:
                 data[-1] = int(data[-1], 16)
             yield (pc, type, data)
 
-    def translate_asm(self, sub_contents):
+    def translate_asm(self, contents):
         for (pc, type, data) in contents:
-            op = data[1]
-
+            opcode = data[0]
+            entry = list(filter(lambda instr: instr['instr'] == opcode, self.op_table))[0]
+            print(entry)
+            if entry['type'] == 'ALU-R':
+                machine = (int(entry['opcode'], 2) << 24) + (int(data[1]) << 20) + (int(data[2]) << 16) + (int(data[3]) << 12)
+                print(hex(machine))
+            elif entry['type'] == 'ALU-I':
+                if entry['instr'] == 'MVHI':
+                    machine = (int(entry['opcode'], 2) << 24) + (int(data[1]) << 20) + (int(data[2]))   
+                else:
+                    machine = (int(entry['opcode'], 2) << 24) + (int(data[1]) << 20) + (int(data[2]) << 16) + (int(data[3]))
+                print(hex(machine))
+            elif entry['type'] == 'LDSW':
+                machine = (int(entry['opcode'], 2) << 24) + (int(data[1]) << 20) + (int(data[2]) << 16) + (int(data[3]))
+                print(hex(machine))
+            elif entry['type'] == 'CMP-R':
+                machine = (int(entry['opcode'], 2) << 24) + (int(data[1]) << 20) + (int(data[2]) << 16) + (int(data[3]) << 12)
+                print(hex(machine))
+            elif entry['type'] == 'CMP-I':
+                machine = (int(entry['opcode'], 2) << 24) + (int(data[1]) << 20) + (int(data[2]) << 16) + (int(data[3]))
+            elif entry['type'] == 'BRANCH':
+                if "Z" in entry['instr'] or "z" in entry['instr']:
+                    machine = (int(entry['opcode'], 2) << 24) + (int(data[1]) << 20) + (int(data[2]))   
+                else:
+                    machine = (int(entry['opcode'], 2) << 24) + (int(data[1]) << 20) + (int(data[2]) << 16) + (int(data[3]))
+                    print(1)
+                print(hex(machine))
+            elif entry['type'] == 'PSEUDO':
+                print(1 )
             yield (pc, type, data)
     ###
     # R0..R3 are also A0..A3 (function arguments, caller saved)
@@ -149,8 +178,8 @@ class Assembler():
             {'instr': 'NORI', 'type': 'ALU-I', 'opcode' : '01001001'},
             {'instr': 'XNORI', 'type': 'ALU-I', 'opcode' : '01001010'},
             {'instr': 'MVHI', 'type': 'ALU-I', 'opcode' : '01001111'},
-            {'instr': 'LW ', 'type': 'LDSW', 'opcode': '01110000'},
-            {'instr': 'SW ', 'type': 'LDSW', 'opcode': '00110000'},
+            {'instr': 'LW', 'type': 'LDSW', 'opcode': '01110000'},
+            {'instr': 'SW', 'type': 'LDSW', 'opcode': '00110000'},
             {'instr': 'F', 'type': 'CMP-R', 'opcode': '11010011'},
             {'instr': 'EQ', 'type': 'CMP-R', 'opcode': '11010110'},
             {'instr': 'LT', 'type': 'CMP-R', 'opcode': '11011001'},
@@ -181,7 +210,14 @@ class Assembler():
             {'instr': 'BNEZ', 'type': 'BRANCH', 'opcode': '00100001'},
             {'instr': 'BGTEZ', 'type': 'BRANCH', 'opcode': '00101110'},
             {'instr': 'BGTZ', 'type': 'BRANCH', 'opcode': '00101111'},
-            {'instr': 'JAL', 'type': 'BRANCH', 'opcode': '01100000'}
+            {'instr': 'JAL', 'type': 'BRANCH', 'opcode': '01100000'},
+            {'instr': 'BR', 'type': 'PSEUDO', 'opcode': '00100110'},
+            {'instr': 'NOT', 'type': 'PSEUDO', 'opcode': '11001000'},
+            {'instr': 'BLE', 'type': 'PSEUDO', 'opcode': '00100001'},
+            {'instr': 'BGE', 'type': 'PSEUDO', 'opcode': '00100001'},
+            {'instr': 'CALL', 'type': 'PSEUDO', 'opcode': '01100000'},
+            {'instr': 'RET', 'type': 'PSEUDO', 'opcode': '01100000'},
+            {'instr': 'JMP', 'type': 'PSEUDO', 'opcode': '01100000'},
         ]
         return opcodes
 
