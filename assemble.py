@@ -34,7 +34,7 @@ class Assembler():
                 orig = orig + " " + assembly[1]
                 for a in range(2, len(assembly)):
                     orig = orig + "," + assembly[a]
-            f.write("-- @ 0x{} : {}\n".format((format((int(c[0])),'x')).zfill(8), orig))
+            f.write("-- @ 0x{} : {}\n".format((format((int(c[0])),'x')).zfill(8), orig.upper()))
             f.write("{} : {};\n".format(format((int(c[0])//4),'x').zfill(8), data[-1]))
             previousPC = int(c[0])//4
         if previousPC != 0x7fe:
