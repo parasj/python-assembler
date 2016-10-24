@@ -13,13 +13,34 @@ class Assembler():
         # 3. substitute symbol table
         # 4. translate to bytecode
         contents = self.read_and_clean_asm(filename)
+        print(filename)
         (sym_table, contents) = self.build_sym_table(contents)
-        print(sym_table['WIDTH'])
         contents = self.split_ops(contents)
         contents = self.substitute_symbols(contents, sym_table)
         contents = self.translate_asm(contents)
+        previousPC = -1
+        f = open('test', 'w')
+        f.write("WIDTH=32;\nDEPTH=2048;\nADDRESS_RADIX=HEX;\nDATA_RADIX=HEX;\nCONTENT BEGIN\n")  
         for c in contents:
-            print("{:5d} {:5s} {}".format(c[0], c[1], list(c[2])))
+            if int(c[0])//4 - 1 != previousPC:
+                if int(c[0])//4 - 1 - previousPC > 1:
+                    f.write("[{}..{}] : DEAD;\n".format(format(previousPC+1,'x').zfill(8), format(int(c[0])//4 - 1,'x').zfill(8)))
+                else:
+                    f.write("{} : DEAD;\n".format(format(previousPC+1,'x').zfill(8)))
+            data = list(c[2])
+            assembly = data[-2]
+            orig = assembly[0]
+            if (len(assembly) > 1):
+                orig = orig + " " + assembly[1]
+                for a in range(2, len(assembly)):
+                    orig = orig + "," + assembly[a]
+            f.write("-- @ 0x{} : {}\n".format((format((int(c[0])),'x')).zfill(8), orig))
+            f.write("{} : {};\n".format(format((int(c[0])//4),'x').zfill(8), data[-1]))
+            previousPC = int(c[0])//4
+        if previousPC != 0x7fe:
+            f.write("[{}..000007ff] : DEAD;\n".format(format(previousPC+1,'x').zfill(8)))
+        f.write("END;\n")
+        f.close()
         return contents
 
     def read_and_clean_asm(self, filename):
@@ -42,16 +63,16 @@ class Assembler():
             (type, data) = toks[n]
 
             if type is "NAME":
-                symbols[data[0]] = data[1]
+                symbols[data[0].strip()] = data[1]
             elif type is "ORIG":    
                 pc = data[0]
             elif type.startswith("LABEL"):
-                symbols[data[0]] = pc
+                symbols[data[0].strip()] = pc
 
             if type is "WORD" or type.endswith("OP"):
                 annotated_toks.append((pc, type, data))
-                pc += 1
-
+                pc += 4
+        print(symbols)
         return symbols, annotated_toks
 
     def split_ops(self, contents):
@@ -63,49 +84,65 @@ class Assembler():
     def substitute_symbols(self, contents, sym_table):
         for (pc, type, data) in contents:
             data = list(data)
+            copy = data[:]
             data = [str(sym_table[n]) if n in sym_table.keys() else n for n in data]
             data = [str(self.reg_table[n]) if n in self.reg_table.keys() else n for n in data]
+            op_entry = list(filter(lambda instr: instr['instr'] == data[0].upper(), self.op_table))[0]
             if "(" and ")" in data[-1]:
                 data[-1] = [", ".join(x.split()) for x in re.split(r'[()]',data[-1]) if x.strip()]
                 data[-1] = [str(sym_table[n]) if n in sym_table.keys() else n for n in data[-1]]
                 data[-1] = [str(self.reg_table[n]) if n in self.reg_table.keys() else n for n in data[-1]]
                 data.append(data[-1][0])
-                data[-2] = data[-2][1]#wrong
+                data[-2] = data[-2][1]
+                print(data)
+            if op_entry['type'] == 'BRANCH':
+                if op_entry['instr'] != 'JAL':
+                    data[-1] = str((int(data[-1]) - (int(pc) + 4))//4 & 0xffff)
+            if op_entry['instr'] == 'JMP' or op_entry['instr'] == 'CALL' or op_entry['instr'] == 'JAL':
+                data[-1] = str((int(data[-1])//4))
             if "x" in data[-1]:
                 data[-1] = int(data[-1], 16)
+            data.append(copy)
             yield (pc, type, data)
 
     def translate_asm(self, contents):
         for (pc, type, data) in contents:
             opcode = data[0]
-            entry = list(filter(lambda instr: instr['instr'] == opcode, self.op_table))[0]
-            print(entry)
+            entry = list(filter(lambda instr: instr['instr'] == opcode.upper()  , self.op_table))[0]
             if entry['type'] == 'ALU-R':
                 machine = (int(entry['opcode'], 2) << 24) + (int(data[1]) << 20) + (int(data[2]) << 16) + (int(data[3]) << 12)
-                print(hex(machine))
             elif entry['type'] == 'ALU-I':
                 if entry['instr'] == 'MVHI':
-                    machine = (int(entry['opcode'], 2) << 24) + (int(data[1]) << 20) + (int(data[2]))   
+                    machine = (int(entry['opcode'], 2) << 24) + (int(data[1]) << 20) + ((int(data[2]) & 0xffff0000) >> 16)  
                 else:
-                    machine = (int(entry['opcode'], 2) << 24) + (int(data[1]) << 20) + (int(data[2]) << 16) + (int(data[3]))
-                print(hex(machine))
-            elif entry['type'] == 'LDSW':
-                machine = (int(entry['opcode'], 2) << 24) + (int(data[1]) << 20) + (int(data[2]) << 16) + (int(data[3]))
-                print(hex(machine))
+                    machine = (int(entry['opcode'], 2) << 24) + (int(data[1]) << 20) + (int(data[2]) << 16) + (int(data[3]) & 0xffff)
+            elif entry['type'] == 'LDSW':   
+                machine = (int(entry['opcode'], 2) << 24) + (int(data[1]) << 20) + (int(data[2]) << 16) + (int(data[3]) & 0xffff)
             elif entry['type'] == 'CMP-R':
                 machine = (int(entry['opcode'], 2) << 24) + (int(data[1]) << 20) + (int(data[2]) << 16) + (int(data[3]) << 12)
-                print(hex(machine))
             elif entry['type'] == 'CMP-I':
-                machine = (int(entry['opcode'], 2) << 24) + (int(data[1]) << 20) + (int(data[2]) << 16) + (int(data[3]))
+                machine = (int(entry['opcode'], 2) << 24) + (int(data[1]) << 20) + (int(data[2]) << 16) + (int(data[3]) & 0xffff)
             elif entry['type'] == 'BRANCH':
                 if "Z" in entry['instr'] or "z" in entry['instr']:
                     machine = (int(entry['opcode'], 2) << 24) + (int(data[1]) << 20) + (int(data[2]))   
                 else:
-                    machine = (int(entry['opcode'], 2) << 24) + (int(data[1]) << 20) + (int(data[2]) << 16) + (int(data[3]))
-                    print(1)
-                print(hex(machine))
+                    machine = (int(entry['opcode'], 2) << 24) + (int(data[1]) << 20) + (int(data[2]) << 16) + (int(data[3]) & 0xffff)
             elif entry['type'] == 'PSEUDO':
-                print(1 )
+                if entry['instr'] == 'BR':
+                    machine = (int(entry['opcode'], 2) << 24) + (6 << 20) + (6 << 16) + (int(data[1]) & 0xffff)
+                elif entry['instr'] == 'NOT':
+                    machine = (int(entry['opcode'], 2) << 24) + (int(data[1]) << 20) + (int(data[2]) << 16) + (int(data[2]) << 12)
+                elif entry['instr'] == 'BLE':
+                    machine = 0
+                elif entry['instr'] == 'BGE':
+                    machine = 0
+                elif entry['instr'] == 'CALL':
+                    machine = (int(entry['opcode'], 2) << 24) + (15 << 20) + (int(data[1]) << 16) + (int(data[2]) & 0xffff)
+                elif entry['instr'] == 'RET':
+                    machine = (int(entry['opcode'], 2) << 24) + (9 << 20) + (15 << 16) 
+                else:
+                    machine = (int(entry['opcode'], 2) << 24) + (9 << 20) + (int(data[1]) << 16) + (int(data[2]) & 0xffff)
+            data.append(format(machine, 'x'))
             yield (pc, type, data)
     ###
     # R0..R3 are also A0..A3 (function arguments, caller saved)
