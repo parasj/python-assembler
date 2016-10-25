@@ -6,7 +6,5 @@ Problem:
 
 Todo
 
-- [ ] .WORD
-- [ ] DEAD
 - [ ] BLE
 - [ ] BGE
