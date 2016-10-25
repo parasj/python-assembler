@@ -66,18 +66,11 @@ class Assembler():
                 symbols[data[0].strip()] = data[1]
             elif inst_type is "ORIG":
                 pc = data[0]
-<<<<<<< HEAD
-            elif type.startswith("LABEL"):
-                symbols[data[0].strip()] = pc//4
-            if type is "WORD" or type.endswith("OP"):
-                annotated_toks.append((pc, type, data))
-=======
             elif inst_type.startswith("LABEL"):
-                symbols[data[0].strip()] = pc
+                symbols[data[0].strip()] = pc // 4
 
             if inst_type is "WORD" or inst_type.endswith("OP"):
                 annotated_toks.append((pc, inst_type, data))
->>>>>>> origin/master
                 pc += 4
         return symbols, annotated_toks
 
