@@ -60,16 +60,24 @@ class Assembler():
 
         pc = 0
         for n in range(0, len(toks)):
-            (type, data) = toks[n]
+            (inst_type, data) = toks[n]
 
-            if type is "NAME":
+            if inst_type is "NAME":
                 symbols[data[0].strip()] = data[1]
-            elif type is "ORIG":
+            elif inst_type is "ORIG":
                 pc = data[0]
+<<<<<<< HEAD
             elif type.startswith("LABEL"):
                 symbols[data[0].strip()] = pc//4
             if type is "WORD" or type.endswith("OP"):
                 annotated_toks.append((pc, type, data))
+=======
+            elif inst_type.startswith("LABEL"):
+                symbols[data[0].strip()] = pc
+
+            if inst_type is "WORD" or inst_type.endswith("OP"):
+                annotated_toks.append((pc, inst_type, data))
+>>>>>>> origin/master
                 pc += 4
         return symbols, annotated_toks
 
@@ -107,48 +115,38 @@ class Assembler():
             opcode = data[0]
             entry = list(filter(lambda instr: instr['instr'] == opcode.upper(), self.op_table))[0]
             if entry['type'] == 'ALU-R':
-                machine = (int(entry['opcode'], 2) << 24) + (int(data[1]) << 20) + (int(data[2]) << 16) + (
-                int(data[3]) << 12)
+                machine = (int(entry['opcode'], 2) << 24) + (int(data[1]) << 20) + (int(data[2]) << 16) + (int(data[3]) << 12)
             elif entry['type'] == 'ALU-I':
                 if entry['instr'] == 'MVHI':
-                    machine = (int(entry['opcode'], 2) << 24) + (int(data[1]) << 20) + (
-                    (int(data[2]) & 0xffff0000) >> 16)
+                    machine = (int(entry['opcode'], 2) << 24) + (int(data[1]) << 20) + ((int(data[2]) & 0xffff0000) >> 16)
                 else:
-                    machine = (int(entry['opcode'], 2) << 24) + (int(data[1]) << 20) + (int(data[2]) << 16) + (
-                    int(data[3]) & 0xffff)
+                    machine = (int(entry['opcode'], 2) << 24) + (int(data[1]) << 20) + (int(data[2]) << 16) + (int(data[3]) & 0xffff)
             elif entry['type'] == 'LDSW':
-                machine = (int(entry['opcode'], 2) << 24) + (int(data[1]) << 20) + (int(data[2]) << 16) + (
-                int(data[3]) & 0xffff)
+                machine = (int(entry['opcode'], 2) << 24) + (int(data[1]) << 20) + (int(data[2]) << 16) + (int(data[3]) & 0xffff)
             elif entry['type'] == 'CMP-R':
-                machine = (int(entry['opcode'], 2) << 24) + (int(data[1]) << 20) + (int(data[2]) << 16) + (
-                int(data[3]) << 12)
+                machine = (int(entry['opcode'], 2) << 24) + (int(data[1]) << 20) + (int(data[2]) << 16) + (int(data[3]) << 12)
             elif entry['type'] == 'CMP-I':
-                machine = (int(entry['opcode'], 2) << 24) + (int(data[1]) << 20) + (int(data[2]) << 16) + (
-                int(data[3]) & 0xffff)
+                machine = (int(entry['opcode'], 2) << 24) + (int(data[1]) << 20) + (int(data[2]) << 16) + (int(data[3]) & 0xffff)
             elif entry['type'] == 'BRANCH':
                 if "Z" in entry['instr'] or "z" in entry['instr']:
                     machine = (int(entry['opcode'], 2) << 24) + (int(data[1]) << 20) + (int(data[2]))
                 else:
-                    machine = (int(entry['opcode'], 2) << 24) + (int(data[1]) << 20) + (int(data[2]) << 16) + (
-                    int(data[3]) & 0xffff)
+                    machine = (int(entry['opcode'], 2) << 24) + (int(data[1]) << 20) + (int(data[2]) << 16) + (int(data[3]) & 0xffff)
             elif entry['type'] == 'PSEUDO':
                 if entry['instr'] == 'BR':
                     machine = (int(entry['opcode'], 2) << 24) + (6 << 20) + (6 << 16) + (int(data[1]) & 0xffff)
                 elif entry['instr'] == 'NOT':
-                    machine = (int(entry['opcode'], 2) << 24) + (int(data[1]) << 20) + (int(data[2]) << 16) + (
-                    int(data[2]) << 12)
+                    machine = (int(entry['opcode'], 2) << 24) + (int(data[1]) << 20) + (int(data[2]) << 16) + (int(data[2]) << 12)
                 elif entry['instr'] == 'BLE':
                     machine = 0
                 elif entry['instr'] == 'BGE':
                     machine = 0
                 elif entry['instr'] == 'CALL':
-                    machine = (int(entry['opcode'], 2) << 24) + (15 << 20) + (int(data[1]) << 16) + (
-                    int(data[2]) & 0xffff)
+                    machine = (int(entry['opcode'], 2) << 24) + (15 << 20) + (int(data[1]) << 16) + (int(data[2]) & 0xffff)
                 elif entry['instr'] == 'RET':
                     machine = (int(entry['opcode'], 2) << 24) + (9 << 20) + (15 << 16)
                 else:
-                    machine = (int(entry['opcode'], 2) << 24) + (9 << 20) + (int(data[1]) << 16) + (
-                    int(data[2]) & 0xffff)
+                    machine = (int(entry['opcode'], 2) << 24) + (9 << 20) + (int(data[1]) << 16) + (int(data[2]) & 0xffff)
             data.append(format(machine, 'x'))
             yield (pc, type, data)
 
