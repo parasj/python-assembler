@@ -14,16 +14,6 @@ class Assembler():
         asm_str_list = self.assemble_2ndpass(inst_toks)
         self.write_asm(filename_out, asm_str_list)
 
-        ###
-        # previousPC = -1
-        # f = open('test', 'w')
-        # f.write("WIDTH=32;\nDEPTH=2048;\nADDRESS_RADIX=HEX;\nDATA_RADIX=HEX;\nCONTENT BEGIN\n")
-        # if previousPC != 0x7fe:
-        #     f.write("[{}..000007ff] : DEAD;\n".format(format(previousPC + 1, 'x').zfill(8)))
-        # f.write("END;\n")
-        # f.close()
-        ###
-
     @staticmethod
     def read_and_clean_asm(filename):
         with open(filename, 'r') as f:
@@ -70,7 +60,10 @@ class Assembler():
             yield self.isa.translate_instruction(pc, inst)
 
     def write_asm(self, filename_out, asm_str_list):
-        print("\n".join(asm_str_list))
+        with open(filename_out, 'w+') as f:
+            f.write("WIDTH=32;\nDEPTH=2048;\nADDRESS_RADIX=HEX;\nDATA_RADIX=HEX;\nCONTENT BEGIN\n")
+            f.write("\n".join(asm_str_list))
+            f.write("\nEND;\n")
 
 
     def substitute_symbols_nick(self, contents, sym_table):

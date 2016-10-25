@@ -7,9 +7,6 @@ class ISA():
         self.reg_table = self.build_reg_table()
         self.op_table = self.build_op_table()
 
-        print(sym_table_names)
-        print(sym_table_labels)
-
     ###
     # R0..R3 are also A0..A3 (function arguments, caller saved)
     # R3 is also RV (return value, caller saved)
