@@ -21,13 +21,13 @@ class Assembler():
         with open(filename, 'r') as f:
             data = f.readlines()
         # strip whitespace
-        data = map(lambda x: x.strip(), data)
+        data = [x.strip() for x in data]
         # strip comments
-        data = map(lambda x: x.split(';', 1)[0], data)
+        data = [x.split(';', 1)[0] for x in data]
         # filter empty lines
-        data = filter(lambda x: x is not None, data)
+        data = [x for x in data if x is not None]
         # filter empty lines
-        data = filter(lambda x: len(x) > 0, data)
+        data = [x for x in data if len(x) > 0]
         return data
 
     def build_sym_table(self, lines):
@@ -58,7 +58,7 @@ class Assembler():
     def split_ops(contents):
         inst_re = re.compile(r'[\s,]+')
         for (pc, type, data) in contents:
-            inst = filter(lambda x: len(x) > 0, inst_re.split(data[0]))
+            inst = [x for x in inst_re.split(data[0]) if len(x) > 0]
             yield (pc, type, inst)
 
     def assemble_2ndpass(self, contents):
@@ -78,16 +78,21 @@ class Assembler():
             yield "[{}..000007ff] : DEAD;".format(format(previous_pc + 1, 'x').zfill(8))
 
     def write_asm(self, filename_out, asm_str_list):
-        with open(filename_out, 'w+') as f:
-            f.write("WIDTH=32;\nDEPTH=2048;\nADDRESS_RADIX=HEX;\nDATA_RADIX=HEX;\nCONTENT BEGIN\n")
-            f.write("\n".join(asm_str_list))
-            f.write("\nEND;\n")
+        s = "WIDTH=32;\nDEPTH=2048;\nADDRESS_RADIX=HEX;\nDATA_RADIX=HEX;\nCONTENT BEGIN\n" +\
+            "\n".join(asm_str_list) +\
+            "\nEND;\n"
+
+        if filename_out is not None:
+            with open(filename_out, 'w+') as f:
+                f.write(s)
+        else:
+            print(s)
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-i', metavar="<input_file>", help="The input file to be assembled", required=True)
-    parser.add_argument('-o', metavar="<output_file>", help="The output file", required=True)
+    parser.add_argument('-o', metavar="<output_file>", help="The output file", default=None)
     args = parser.parse_args()
     Assembler(args.i, args.o)
 
