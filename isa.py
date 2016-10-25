@@ -1,11 +1,101 @@
 import re
 
+
 class ISA():
     def __init__(self, sym_table_names, sym_table_labels):
         self.sym_table_labels = sym_table_labels
         self.sym_table_names = sym_table_names
         self.reg_table = self.build_reg_table()
         self.op_table = self.build_op_table()
+
+    def translate_instruction(self, pc, inst):
+        inst_name = inst[0].upper().strip()
+        assert (inst_name in self.op_table)
+        inst_type = self.op_table.get(inst_name).get('type')
+        inst_opcode = int(self.op_table.get(inst_name).get('opcode'), 2)
+
+        if inst_type == "ALU-R" or inst_type == "CMP-R":
+            # OP FUN RD RS1 RS2
+            rd = self.reg_table[inst[1]]
+            rs1 = self.reg_table[inst[2]]
+            rs2 = self.reg_table[inst[3]]
+            asm = "%02x%01x%01x%01x%03x" % (inst_opcode, rd, rs1, rs2, 0)
+        elif inst_type == "ALU-I" or inst_type == "CMP-I":
+            # OP FUN RD RS1 IMM
+            rd = self.reg_table[inst[1]]
+            rs1 = self.reg_table[inst[2]] if inst_name != "MVHI" else 0
+            imm = self.parse_imm(inst[3]) if inst_name != "MVHI" else (self.parse_imm(inst[2]) >> 16)
+            asm = "%02x%01x%01x%s" % (inst_opcode, rd, rs1, self.twocompl_to_hex(imm, 16))
+        elif inst_type == "LDSW" or inst_name == "JAL":
+            # OP FUN RMEM RS1 IMM
+            rmem = self.reg_table[inst[1]]
+            r = re.match(r'^(.+)\((.+)\)$', inst[2])
+            rs1 = self.reg_table[r.group(2)]
+            imm = self.parse_imm(r.group(1))
+            asm = "%02x%01x%01x%s" % (inst_opcode, rmem, rs1, self.twocompl_to_hex(imm, 16))
+        elif inst_type == "BRANCH":
+            # OP FUN RD RS1 IMM
+            zero_rs1 = ["BEQZ", "BLTZ", "BLTEZ", "BNEZ", "BGTZ", "BGTEZ"]
+            rd = self.reg_table[inst[1]]
+            rs1 = self.reg_table[inst[2]] if inst_name not in zero_rs1 else 0
+            imm = self.parse_imm(inst[3]) if inst_name not in zero_rs1 else self.parse_imm(inst[2])
+            asm = "%02x%01x%01x%s" % (inst_opcode, rd, rs1, self.twocompl_to_hex(imm - (pc + 1), 16))
+        else:
+            asm = ""
+
+        comment = "-- @ 0x{} : {}".format((format((int(pc * 4)), 'x')).zfill(8), self.reconstruct_inst(inst).upper())
+        asm_line = "{} : {};".format(format(int(pc), 'x').zfill(8), asm)
+        return comment + "\n" + asm_line
+
+    def parse_imm(self, imm):
+        if (imm in self.sym_table_names):
+            parsed_imm = self.sym_table_names[imm]
+        elif (imm in self.sym_table_labels):
+            parsed_imm = self.sym_table_labels[imm]
+        else:
+            parsed_imm = int(imm, 0)
+
+        return parsed_imm
+
+    @staticmethod
+    def tokenize_symbol_line(l):
+        def parse_literal(num):
+            return int(num, 0)
+
+        s = l.strip()
+        m = re.match(r'^.NAME\s*(.*)\s*=\s*(.*)\s*$', s)
+        if m:
+            return "NAME", [m.group(1), parse_literal(m.group(2))]
+        m = re.match(r'^.ORIG\s*(.*)\s*$', s)
+        if m:
+            return "ORIG", [parse_literal(m.group(1))]
+        m = re.match(r'^.WORD.*', s)
+        if m:
+            return "WORD", []  # todo
+        m = re.match(r'^\s*([^\s]+)\s*:\s*(.+)\s*$', s)
+        if m:
+            return "LABELOP", [m.group(1), m.group(2)]
+        m = re.match(r'^\s*([^\s]+)\s*:\s*$', s)
+        if m:
+            return "LABEL", [m.group(1)]
+        return "OP", [l]
+
+    @staticmethod
+    def reconstruct_inst(inst):
+        orig = inst[0]
+        if (len(inst) > 1):
+            orig = orig + " " + inst[1]
+            for a in range(2, len(inst)):
+                orig = orig + "," + inst[a]
+        return orig
+
+    @staticmethod
+    def twocompl_to_hex(n, nbits):
+        if n >= 0:
+            return (format(n, 'x')).zfill(nbits >> 2)
+        else:
+            mask = (1 << nbits) - 1
+            return format((((abs(n) ^ mask) + 1) & mask), 'x')
 
     ###
     # R0..R3 are also A0..A3 (function arguments, caller saved)
@@ -94,90 +184,3 @@ class ISA():
             'RET': {'type': 'PSEUDO', 'opcode': '01100000'},
             'JMP': {'type': 'PSEUDO', 'opcode': '01100000'},
         }
-
-    def translate_instruction(self, pc, inst):
-        def twocompl_to_hex(n, nbits):
-            if n >= 0:
-                return (format(n, 'x')).zfill(nbits >> 2)
-            else:
-                mask = (1 << nbits) - 1
-                return format((((abs(n) ^ mask) + 1) & mask), 'x')
-
-        inst_name = inst[0].upper().strip()
-        assert (inst_name in self.op_table)
-        inst_type = self.op_table.get(inst_name).get('type')
-        inst_opcode = int(self.op_table.get(inst_name).get('opcode'), 2)
-
-        if inst_type == "ALU-R" or inst_type == "CMP-R":
-            # OP FUN RD RS1 RS2
-            rd = self.reg_table[inst[1]]
-            rs1 = self.reg_table[inst[2]]
-            rs2 = self.reg_table[inst[3]]
-            asm = "%02x%01x%01x%01x%03x" % (inst_opcode, rd, rs1, rs2, 0)
-        elif inst_type == "ALU-I" or inst_type == "CMP-I":
-            # OP FUN RD RS1 IMM
-            rd = self.reg_table[inst[1]]
-            rs1 = self.reg_table[inst[2]] if inst_name != "MVHI" else 0
-            imm = self.parse_imm(inst[3]) if inst_name != "MVHI" else (self.parse_imm(inst[2]) >> 16)
-            asm = "%02x%01x%01x%s" % (inst_opcode, rd, rs1, twocompl_to_hex(imm, 16))
-        elif inst_type == "LDSW" or inst_name == "JAL":
-            # OP FUN RMEM RS1 IMM
-            rmem = self.reg_table[inst[1]]
-            r = re.match(r'^(.+)\((.+)\)$', inst[2])
-            rs1 = self.reg_table[r.group(2)]
-            imm = self.parse_imm(r.group(1))
-            asm = "%02x%01x%01x%s" % (inst_opcode, rmem, rs1, twocompl_to_hex(imm, 16))
-        elif inst_type == "BRANCH":
-            # OP FUN RD RS1 IMM
-            zero_rs1 = ["BEQZ", "BLTZ", "BLTEZ", "BNEZ", "BGTZ", "BGTEZ"]
-            rd = self.reg_table[inst[1]]
-            rs1 = self.reg_table[inst[2]] if inst_name not in zero_rs1 else 0
-            imm = self.parse_imm(inst[3]) if inst_name not in zero_rs1 else self.parse_imm(inst[2])
-            asm = "%02x%01x%01x%s" % (inst_opcode, rd, rs1, twocompl_to_hex(imm - (pc + 1), 16))
-        else:
-            asm = ""
-
-        comment = "-- @ 0x{} : {}".format((format((int(pc * 4)), 'x')).zfill(8), self.reconstruct_inst(inst).upper())
-        asm_line = "{} : {};".format(format(int(pc), 'x').zfill(8), asm)
-        return comment + "\n" + asm_line
-
-    @staticmethod
-    def tokenize_symbol_line(l):
-        def parse_literal(num):
-            return int(num, 0)
-
-        s = l.strip()
-        m = re.match(r'^.NAME\s*(.*)\s*=\s*(.*)\s*$', s)
-        if m:
-            return "NAME", [m.group(1), parse_literal(m.group(2))]
-        m = re.match(r'^.ORIG\s*(.*)\s*$', s)
-        if m:
-            return "ORIG", [parse_literal(m.group(1))]
-        m = re.match(r'^.WORD.*', s)
-        if m:
-            return "WORD", []  # todo
-        m = re.match(r'^\s*([^\s]+)\s*:\s*(.+)\s*$', s)
-        if m:
-            return "LABELOP", [m.group(1), m.group(2)]
-        m = re.match(r'^\s*([^\s]+)\s*:\s*$', s)
-        if m:
-            return "LABEL", [m.group(1)]
-        return "OP", [l]
-
-    def reconstruct_inst(self, inst):
-        orig = inst[0]
-        if (len(inst) > 1):
-            orig = orig + " " + inst[1]
-            for a in range(2, len(inst)):
-                orig = orig + "," + inst[a]
-        return orig
-
-    def parse_imm(self, imm):
-        if (imm in self.sym_table_names):
-            parsed_imm = self.sym_table_names[imm]
-        elif (imm in self.sym_table_labels):
-            parsed_imm = self.sym_table_labels[imm]
-        else:
-            parsed_imm = int(imm, 0)
-
-        return parsed_imm

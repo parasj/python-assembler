@@ -1,6 +1,8 @@
 import argparse
 import re
+
 from isa import ISA
+
 
 class Assembler():
     def __init__(self, filename, filename_out):
@@ -18,10 +20,10 @@ class Assembler():
     def read_and_clean_asm(filename):
         with open(filename, 'r') as f:
             data = f.readlines()
-        data = map(lambda x: x.strip(), data)           # strip whitespace
+        data = map(lambda x: x.strip(), data)  # strip whitespace
         data = map(lambda x: x.split(';', 1)[0], data)  # strip comments
-        data = filter(lambda x: x is not None, data)    # filter empty lines
-        data = filter(lambda x: len(x) > 0, data)       # filter empty lines
+        data = filter(lambda x: x is not None, data)  # filter empty lines
+        data = filter(lambda x: len(x) > 0, data)  # filter empty lines
         return data
 
     def build_sym_table(self, lines):
