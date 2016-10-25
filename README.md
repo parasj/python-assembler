@@ -8,3 +8,5 @@ Todo
 
 - [ ] .WORD
 - [ ] DEAD
+- [ ] BLE
+- [ ] BGE

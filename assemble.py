@@ -62,8 +62,20 @@ class Assembler():
             yield (pc, type, inst)
 
     def assemble_2ndpass(self, contents):
+        previous_pc = -1
         for (pc, type, inst) in contents:
-            yield self.isa.translate_instruction(pc, inst)
+            delta = pc - 1 - previous_pc
+            if delta == 1:
+                yield "{} : DEAD;".format(format(previous_pc + 1, 'x').zfill(8))
+            elif delta > 1:
+                yield "[{}..{}] : DEAD;".format(format(previous_pc + 1, 'x').zfill(8),
+                                                  format(pc - 1, 'x').zfill(8))
+
+            asm = self.isa.translate_instruction(pc, inst)
+            previous_pc = pc
+            yield asm
+        if previous_pc != 0x7fe:
+            yield "[{}..000007ff] : DEAD;".format(format(previous_pc + 1, 'x').zfill(8))
 
     def write_asm(self, filename_out, asm_str_list):
         with open(filename_out, 'w+') as f:
