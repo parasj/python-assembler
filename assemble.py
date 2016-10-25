@@ -7,13 +7,13 @@ from isa import ISA
 class Assembler():
     def __init__(self, filename, filename_out):
         # 1. read in file
-        # 2. make symbol tables
-        # 3. substitute symbol table
-        # 4. translate to bytecode
         contents = self.read_and_clean_asm(filename)
+        # 2. make symbol tables
         (inst_toks, sym_table_names, sym_table_labels) = self.build_sym_table(contents)
         self.isa = ISA(sym_table_names, sym_table_labels)
+        # 3. translate to bytecode
         asm_str_list = self.assemble_2ndpass(inst_toks)
+        # 4. write to file
         self.write_asm(filename_out, asm_str_list)
 
     @staticmethod
@@ -77,8 +77,7 @@ def main():
     parser.add_argument('-i', metavar="<input_file>", help="The input file to be assembled", required=True)
     parser.add_argument('-o', metavar="<output_file>", help="The output file", required=True)
     args = parser.parse_args()
-
-    assembler = Assembler(args.i, args.o)
+    Assembler(args.i, args.o)
 
 
 if __name__ == "__main__":
