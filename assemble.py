@@ -7,19 +7,18 @@ class Assembler():
         self.reg_table = self.build_reg_table()
         self.op_table = self.build_op_table()
 
-    def assemble(self, filename):
+    def assemble(self, filename, outputfilename):
         # 1. read in file
         # 2. make symbol tables
         # 3. substitute symbol table
         # 4. translate to bytecode
         contents = self.read_and_clean_asm(filename)
-        print(filename)
         (sym_table, contents) = self.build_sym_table(contents)
         contents = self.split_ops(contents)
         contents = self.substitute_symbols(contents, sym_table)
         contents = self.translate_asm(contents)
         previousPC = -1
-        f = open('test', 'w')
+        f = open(outputfilename, 'w')
         f.write("WIDTH=32;\nDEPTH=2048;\nADDRESS_RADIX=HEX;\nDATA_RADIX=HEX;\nCONTENT BEGIN\n")
         for c in contents:
             if int(c[0]) // 4 - 1 != previousPC:
@@ -68,12 +67,10 @@ class Assembler():
             elif type is "ORIG":
                 pc = data[0]
             elif type.startswith("LABEL"):
-                symbols[data[0].strip()] = pc
-
+                symbols[data[0].strip()] = pc//4
             if type is "WORD" or type.endswith("OP"):
                 annotated_toks.append((pc, type, data))
                 pc += 4
-        print(symbols)
         return symbols, annotated_toks
 
     def split_ops(self, contents):
@@ -86,21 +83,20 @@ class Assembler():
         for (pc, type, data) in contents:
             data = list(data)
             copy = data[:]
+            op_entry = list(filter(lambda instr: instr['instr'] == data[0].upper(), self.op_table))[0]
             data = [str(sym_table[n]) if n in sym_table.keys() else n for n in data]
             data = [str(self.reg_table[n]) if n in self.reg_table.keys() else n for n in data]
-            op_entry = list(filter(lambda instr: instr['instr'] == data[0].upper(), self.op_table))[0]
             if "(" and ")" in data[-1]:
                 data[-1] = [", ".join(x.split()) for x in re.split(r'[()]', data[-1]) if x.strip()]
                 data[-1] = [str(sym_table[n]) if n in sym_table.keys() else n for n in data[-1]]
                 data[-1] = [str(self.reg_table[n]) if n in self.reg_table.keys() else n for n in data[-1]]
                 data.append(data[-1][0])
                 data[-2] = data[-2][1]
-                print(data)
             if op_entry['type'] == 'BRANCH':
                 if op_entry['instr'] != 'JAL':
-                    data[-1] = str((int(data[-1]) - (int(pc) + 4)) // 4 & 0xffff)
+                    data[-1] = str((int(data[-1])*4 - (int(pc) + 4))//4  & 0xffff)
             if op_entry['instr'] == 'JMP' or op_entry['instr'] == 'CALL' or op_entry['instr'] == 'JAL':
-                data[-1] = str((int(data[-1]) // 4))
+                data[-1] = str((int(data[-1])))
             if "x" in data[-1]:
                 data[-1] = int(data[-1], 16)
             data.append(copy)
@@ -275,10 +271,12 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-i', metavar="<input_file>", help="The input file to \
                         be assembled", required=True)  # todo output_file
+    parser.add_argument('-o', metavar="<output_file>", help="The output file to\
+                        be assembled", required=True)
     args = parser.parse_args()
 
     assembler = Assembler()
-    out = assembler.assemble(args.i)
+    out = assembler.assemble(args.i, args.o)
 
 
 if __name__ == "__main__":
