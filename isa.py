@@ -10,11 +10,13 @@ class ISA():
 
     def translate_instruction(self, pc, inst):
         inst_name = inst[0].upper().strip()
-        assert (inst_name in self.op_table)
-        inst_type = self.op_table.get(inst_name).get('type')
-        inst_opcode = int(self.op_table.get(inst_name).get('opcode'), 2)
+        assert (inst_name == ".WORD" or inst_name in self.op_table)
+        inst_type = self.op_table.get(inst_name).get('type') if inst_name in self.op_table else None
+        inst_opcode = int(self.op_table.get(inst_name).get('opcode'), 2) if inst_name in self.op_table else None
 
-        if inst_type == "ALU-R" or inst_type == "CMP-R":
+        if inst_name == ".WORD":
+            asm = "%08x" % (self.parse_imm(inst[1]),)
+        elif inst_type == "ALU-R" or inst_type == "CMP-R":
             # OP FUN RD RS1 RS2
             rd = self.reg_table[inst[1]]
             rs1 = self.reg_table[inst[2]]
@@ -99,9 +101,9 @@ class ISA():
         m = re.match(r'^.ORIG\s*(.*)\s*$', s)
         if m:
             return "ORIG", [parse_literal(m.group(1))]
-        m = re.match(r'^.WORD.*', s)
+        m = re.match(r'^.WORD\s*(.*)\s*$', s)
         if m:
-            return "WORD", []  # todo
+            return "WORD", [".WORD " + m.group(1)]
         m = re.match(r'^\s*([^\s]+)\s*:\s*(.+)\s*$', s)
         if m:
             return "LABELOP", [m.group(1), m.group(2)]
