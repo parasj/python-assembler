@@ -40,6 +40,36 @@ class ISA():
             rs1 = self.reg_table[inst[2]] if inst_name not in zero_rs1 else 0
             imm = self.parse_imm(inst[3]) if inst_name not in zero_rs1 else self.parse_imm(inst[2])
             asm = "%02x%01x%01x%s" % (inst_opcode, rd, rs1, self.twocompl_to_hex(imm - (pc + 1), 16))
+        elif inst_type == "PSEUDO":
+            if inst_name == "BR":
+                rd = self.reg_table['r6']
+                rs1 = self.reg_table['r6']
+                imm = self.parse_imm(inst[1])
+                asm = "%02x%01x%01x%s" % (inst_opcode, rd, rs1, self.twocompl_to_hex(imm - (pc + 1), 16))
+            elif inst_name == "NOT":
+                rd = self.reg_table[inst[1]]
+                rs1 = self.reg_table[inst[2]]
+                rs2 = rs1
+                asm = "%02x%01x%01x%01x%03x" % (inst_opcode, rd, rs1, rs2, 0)
+            elif inst_name == "CALL": # imm(RS1) -> JAL RA,imm(RS1)
+                rmem = self.reg_table['ra']
+                r = re.match(r'^(.+)\((.+)\)$', inst[1])
+                rs1 = self.reg_table[r.group(2)]
+                imm = self.parse_imm(r.group(1))
+                asm = "%02x%01x%01x%s" % (inst_opcode, rmem, rs1, self.twocompl_to_hex(imm, 16))
+            elif inst_name == "RET": # JAL R9,0(RA)
+                rmem = self.reg_table['r9']
+                rs1 = self.reg_table['ra']
+                imm = 0
+                asm = "%02x%01x%01x%s" % (inst_opcode, rmem, rs1, self.twocompl_to_hex(imm, 16))
+            elif inst_name == "JMP": # "JAL R9,imm(RS1)"
+                rmem = self.reg_table['r9']
+                r = re.match(r'^(.+)\((.+)\)$', inst[1])
+                rs1 = self.reg_table[r.group(2)]
+                imm = self.parse_imm(r.group(1))
+                asm = "%02x%01x%01x%s" % (inst_opcode, rmem, rs1, self.twocompl_to_hex(imm, 16))
+            else:
+                asm = ""
         else:
             asm = ""
 

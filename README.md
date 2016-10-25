@@ -7,5 +7,4 @@ Problem:
 Todo
 
 - [ ] .WORD
-- [ ] Pseudo-opds
 - [ ] DEAD
